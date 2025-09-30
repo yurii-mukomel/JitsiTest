@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Jitsi BOSH Example</title>
+  <script src="https://jitsi.friendswithkings.com/libs/lib-jitsi-meet.min.js"></script>
+</head>
+<body>
+  <video id="localVideo" autoplay muted playsinline></video>
+  <div id="remoteVideos"></div>
+
+  <script>
+    const domain = "jitsi.friendswithkings.com";
+
+    JitsiMeetJS.init();
+
+    const connection = new JitsiMeetJS.JitsiConnection(null, null, {
+      hosts: {
+        domain: domain,
+        muc: `conference.${domain}` // MUC component
+      },
+      bosh: `https://${domain}/http-bind`, // 👈 тут bosh
+    });
+
+    let room;
+
+    connection.addEventListener(
+      JitsiMeetJS.events.connection.CONNECTION_ESTABLISHED,
+      onConnectionSuccess
+    );
+    connection.addEventListener(
+      JitsiMeetJS.events.connection.CONNECTION_FAILED,
+      () => console.error("Connection Failed")
+    );
+    connection.addEventListener(
+      JitsiMeetJS.events.connection.CONNECTION_DISCONNECTED,
+      () => console.log("Disconnected")
+    );
+
+    connection.connect();
+
+    function onConnectionSuccess() {
+      room = connection.initJitsiConference("myroom", {
+        openBridgeChannel: true
+      });
+
+      room.on(JitsiMeetJS.events.conference.TRACK_ADDED, onRemoteTrack);
+      room.join();
+
+      JitsiMeetJS.createLocalTracks({ devices: ["video", "audio"] })
+        .then(tracks => {
+          tracks.forEach(track => {
+            room.addTrack(track);
+
+            if (track.getType() === "video") {
+              const localVideo = document.getElementById("localVideo");
+              localVideo.srcObject = track.stream;
+            }
+          });
+        })
+        .catch(error => console.error("Local tracks error", error));
+    }
+
+    function onRemoteTrack(track) {
+      if (track.isLocal()) return;
+
+      if (track.getType() === "video") {
+        const video = document.createElement("video");
+        video.autoplay = true;
+        video.playsInline = true;
+        video.srcObject = track.stream;
+        document.getElementById("remoteVideos").appendChild(video);
+      }
+    }
+  </script>
+</body>
+</html>
