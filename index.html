@@ -1,77 +1,44 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8" />
-  <title>Jitsi BOSH Example</title>
-  <script src="https://jitsi.friendswithkings.com/libs/lib-jitsi-meet.min.js"></script>
-</head>
-<body>
-  <video id="localVideo" autoplay muted playsinline></video>
-  <div id="remoteVideos"></div>
+  <head>
+    <title>My Jitsi Test</title>
+    <meta charset="utf-8" />
+  </head>
+  <body>
+    <h1>Jitsi Test</h1>
+    <video id="localVideo" autoplay playsinline muted></video>
+    <video id="remoteVideo" autoplay playsinline></video>
 
-  <script>
-    const domain = "jitsi.friendswithkings.com";
+    <script src="https://jitsi.friendswithkings.com/libs/lib-jitsi-meet.min.js"></script>
+    <script src="https://jitsi.friendswithkings.com/config.js"></script>
 
-    JitsiMeetJS.init();
+    <script>
+      const domain = "jitsi.friendswithkings.com";
+      const options = config; // використовуємо той самий конфіг, що і офіційний клієнт
 
-    const connection = new JitsiMeetJS.JitsiConnection(null, null, {
-      hosts: {
-        domain: domain,
-        muc: `conference.${domain}` // MUC component
-      },
-      bosh: `https://${domain}/http-bind`, // 👈 тут bosh
-    });
+      const connection = new JitsiMeetJS.JitsiConnection(null, null, options);
 
-    let room;
+      connection.addEventListener(JitsiMeetJS.events.connection.CONNECTION_ESTABLISHED, onConnectionSuccess);
+      connection.addEventListener(JitsiMeetJS.events.connection.CONNECTION_FAILED, () => console.error("FAILED"));
+      connection.connect();
 
-    connection.addEventListener(
-      JitsiMeetJS.events.connection.CONNECTION_ESTABLISHED,
-      onConnectionSuccess
-    );
-    connection.addEventListener(
-      JitsiMeetJS.events.connection.CONNECTION_FAILED,
-      () => console.error("Connection Failed")
-    );
-    connection.addEventListener(
-      JitsiMeetJS.events.connection.CONNECTION_DISCONNECTED,
-      () => console.log("Disconnected")
-    );
+      function onConnectionSuccess() {
+        const conf = connection.initJitsiConference("myroom", options);
+        conf.on(JitsiMeetJS.events.conference.TRACK_ADDED, track => {
+          if (track.isLocal()) {
+            document.getElementById("localVideo").srcObject = track.stream;
+          } else {
+            document.getElementById("remoteVideo").srcObject = track.stream;
+          }
+        });
 
-    connection.connect();
-
-    function onConnectionSuccess() {
-      room = connection.initJitsiConference("myroom", {
-        openBridgeChannel: true
-      });
-
-      room.on(JitsiMeetJS.events.conference.TRACK_ADDED, onRemoteTrack);
-      room.join();
-
-      JitsiMeetJS.createLocalTracks({ devices: ["video", "audio"] })
-        .then(tracks => {
-          tracks.forEach(track => {
-            room.addTrack(track);
-
-            if (track.getType() === "video") {
-              const localVideo = document.getElementById("localVideo");
-              localVideo.srcObject = track.stream;
-            }
+        JitsiMeetJS.createLocalTracks({ devices: ["audio", "video"] })
+          .then(tracks => {
+            tracks.forEach(track => conf.addTrack(track));
           });
-        })
-        .catch(error => console.error("Local tracks error", error));
-    }
 
-    function onRemoteTrack(track) {
-      if (track.isLocal()) return;
-
-      if (track.getType() === "video") {
-        const video = document.createElement("video");
-        video.autoplay = true;
-        video.playsInline = true;
-        video.srcObject = track.stream;
-        document.getElementById("remoteVideos").appendChild(video);
+        conf.join();
       }
-    }
-  </script>
-</body>
+    </script>
+  </body>
 </html>
